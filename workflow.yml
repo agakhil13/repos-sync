@@ -1,0 +1,34 @@
+name: Sync main branch to ghes
+
+on:
+  schedule:
+    - cron: '30 06 * * *'
+  
+  workflow_dispatch:
+
+jobs:
+  git-mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Executing commands
+        run: |
+          git clone "https://${{ secrets.TOKEN }}@github.com/[DESTINATION_ORG]/[DESTINATION_REPO].git" --origin source
+          cd [DESTINATION_REPO]
+          git branch -a | grep -v "[BRANCH_WITH_WORKFLOW]" | awk -F'/' '{print $(NF)}' | xargs --no-run-if-empty git push -f --delete source
+          git tag | xargs --no-run-if-empty git push -f --delete source
+          cd ..
+          git clone "https://${{ secrets.TOKEN }}@github.com/[SOURCE_ORG]/[SOURCE_REPO].git" --origin source 
+          cp -r [DESTINATION_REPO]/.github [SOURCE_REPO]/
+          cd [SOURCE_REPO]/
+          git remote add destination "https://${{ secrets.TOKEN }}@github.com/[DESTINATION_ORG]/[DESTINATION_REPO].git"
+          git remote -v
+          git fetch source '+refs/heads/*:refs/heads/*' --update-head-ok
+          git --no-pager branch -a -vv
+          git push destination refs/remotes/source/*:refs/heads/* -f
+          git push destination refs/tags/*:refs/tags/* -f
+          git config user.name "workflow_user"
+          git config user.email "workflow_user@comcast.com"
+          git add .
+          git commit -m "Added Workflow"
+          git push destination -f
+          git push -f --delete destination HEAD
