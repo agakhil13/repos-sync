@@ -1,0 +1,35 @@
+name: Sync main branch to ghes
+
+on:
+  push:
+    branches:
+      - master
+  
+  workflow_dispatch:
+
+jobs:
+  git-mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Executing commands
+        run: |
+          git clone "https://${{ secrets.TOKEN }}@github.com/es-det/ghs_sync.git" --origin source
+          cd ghs_sync
+          git branch -a | grep -v "main" | awk -F'/' '{print $(NF)}' | xargs --no-run-if-empty git push -f --delete source
+          git tag | xargs --no-run-if-empty git push -f --delete source
+          cd ..
+          git clone "https://${{ secrets.TOKEN }}@github.com/es-det/test.git" --origin source 
+          cp -r ghs_sync/.github test/
+          cd test/
+          git remote add destination "https://${{ secrets.TOKEN }}@github.com/es-det/ghs_sync.git"
+          git remote -v
+          git fetch source '+refs/heads/*:refs/heads/*' --update-head-ok
+          git --no-pager branch -a -vv
+          git push destination refs/remotes/source/*:refs/heads/* -f
+          git push destination refs/tags/*:refs/tags/* -f
+          git config user.name "workflow_user"
+          git config user.email "workflow_user@comcast.com"
+          git add .
+          git commit -m "Added Workflow"
+          git push destination -f
+          git push -f --delete destination HEAD
